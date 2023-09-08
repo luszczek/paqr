@@ -1,0 +1,16 @@
+
+TIME      M      N  MB  NB     P     Q Fact Time      MFLOPS  CHECK  Residual
+---- ------ ------ --- --- ----- ----- --------- ----------- ------  --------
+
+WALL 8192 8192 64 64 8 8 1.089667   672812.60 BYPASS    0.    
+WALL 8192 8192 64 64 8 8 .889742   823994.18 BYPASS    0.    
+WALL 8192 8192 64 64 8 8 .897292   817060.38 BYPASS    0.    
+WALL 8192 8192 64 64 8 8 .509868  1437904.56 BYPASS    0.    
+WALL 8192 8192 64 64 8 8 4.174089   175641.17 BYPASS    0.    
+
+Finished      5 tests, with the following results:
+    5 tests completed without checking.
+    0 tests skipped because of illegal input values.
+
+
+END OF TESTS.
