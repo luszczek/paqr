@@ -1,0 +1,4 @@
+function A=break1(n)
+  e=1:n;
+  e(n)=10^(-9);
+  A=orth(rand(n))*diag(e)*orth(rand(n));
