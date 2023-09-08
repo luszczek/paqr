@@ -1,0 +1,1181 @@
+diff --git a/SRC/Makefile b/SRC/Makefile
+index b05c81f..3fd2f22 100644
+--- a/SRC/Makefile
++++ b/SRC/Makefile
+@@ -321,7 +321,7 @@ DLASRC = \
+    dgebrd.o dgecon.o dgeequ.o dgees.o  dgeesx.o dgeev.o  dgeevx.o \
+    dgehd2.o dgehrd.o dgelq2.o dgelqf.o \
+    dgels.o  dgelsd.o dgelss.o dgelsy.o dgeql2.o dgeqlf.o \
+-   dgeqp3.o dgeqr2.o dgeqr2p.o dgeqrf.o dgeqrfp.o dgerfs.o \
++   dgeqp3.o dgeqr2.o dgepoqr2.o dgeqr2p.o dgeqrf.o dgepoqrf.o dgeqrfp.o dgerfs.o \
+    dgerq2.o dgerqf.o dgesc2.o dgesdd.o dgesv.o  dgesvd.o dgesvdx.o dgesvx.o \
+    dgetc2.o dgetf2.o dgetrf.o dgetri.o \
+    dgetrs.o dggbak.o dggbal.o dgges.o  dgges3.o dggesx.o \
+@@ -339,7 +339,7 @@ DLASRC = \
+    dlaqgb.o dlaqge.o dlaqp2.o dlaqps.o dlaqsb.o dlaqsp.o dlaqsy.o \
+    dlaqr0.o dlaqr1.o dlaqr2.o dlaqr3.o dlaqr4.o dlaqr5.o \
+    dlaqtr.o dlar1v.o dlar2v.o iladlr.o iladlc.o \
+-   dlarf.o  dlarfb.o dlarfb_gett.o dlarfg.o dlarfgp.o dlarft.o dlarfx.o dlarfy.o \
++   dlarf.o  dlarfb.o dlarfb_gett.o dlarfg.o  dscalcpy.o dlarfgpo.o dlarfgp.o dlarft.o dlarfx.o dlarfy.o \
+    dlargv.o dlarrv.o dlartv.o \
+    dlarz.o  dlarzb.o dlarzt.o dlaswp.o dlasy2.o \
+    dlasyf.o dlasyf_rook.o dlasyf_rk.o \
+diff --git a/SRC/dgepoqr2.f b/SRC/dgepoqr2.f
+new file mode 100644
+index 0000000..988c4ad
+--- /dev/null
++++ b/SRC/dgepoqr2.f
+@@ -0,0 +1,209 @@
++*> \brief \b DGEQR2 computes the QR factorization of a general rectangular matrix using an unblocked algorithm.
++*
++*  =========== DOCUMENTATION ===========
++*
++* Online html documentation available at
++*            http://www.netlib.org/lapack/explore-html/
++*
++*> \htmlonly
++*> Download DGEQR2 + dependencies
++*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dgeqr2.f">
++*> [TGZ]</a>
++*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dgeqr2.f">
++*> [ZIP]</a>
++*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dgeqr2.f">
++*> [TXT]</a>
++*> \endhtmlonly
++*
++*  Definition:
++*  ===========
++*
++*       SUBROUTINE DGEQR2( M, N, A, LDA, TAU, WORK, INFO )
++*
++*       .. Scalar Arguments ..
++*       INTEGER            INFO, LDA, M, N
++*       ..
++*       .. Array Arguments ..
++*       DOUBLE PRECISION   A( LDA, * ), TAU( * ), WORK( * )
++*       ..
++*
++*
++*> \par Purpose:
++*  =============
++*>
++*> \verbatim
++*>
++*> DGEQR2 computes a QR factorization of a real m-by-n matrix A:
++*>
++*>    A = Q * ( R ),
++*>            ( 0 )
++*>
++*> where:
++*>
++*>    Q is a m-by-m orthogonal matrix;
++*>    R is an upper-triangular n-by-n matrix;
++*>    0 is a (m-n)-by-n zero matrix, if m > n.
++*>
++*> \endverbatim
++*
++*  Arguments:
++*  ==========
++*
++*> \param[in] M
++*> \verbatim
++*>          M is INTEGER
++*>          The number of rows of the matrix A.  M >= 0.
++*> \endverbatim
++*>
++*> \param[in] N
++*> \verbatim
++*>          N is INTEGER
++*>          The number of columns of the matrix A.  N >= 0.
++*> \endverbatim
++*>
++*> \param[in,out] A
++*> \verbatim
++*>          A is DOUBLE PRECISION array, dimension (LDA,N)
++*>          On entry, the m by n matrix A.
++*>          On exit, the elements on and above the diagonal of the array
++*>          contain the min(m,n) by n upper trapezoidal matrix R (R is
++*>          upper triangular if m >= n); the elements below the diagonal,
++*>          with the array TAU, represent the orthogonal matrix Q as a
++*>          product of elementary reflectors (see Further Details).
++*> \endverbatim
++*>
++*> \param[in] LDA
++*> \verbatim
++*>          LDA is INTEGER
++*>          The leading dimension of the array A.  LDA >= max(1,M).
++*> \endverbatim
++*>
++*> \param[out] TAU
++*> \verbatim
++*>          TAU is DOUBLE PRECISION array, dimension (min(M,N))
++*>          The scalar factors of the elementary reflectors (see Further
++*>          Details).
++*> \endverbatim
++*>
++*> \param[out] WORK
++*> \verbatim
++*>          WORK is DOUBLE PRECISION array, dimension (N)
++*> \endverbatim
++*>
++*> \param[out] INFO
++*> \verbatim
++*>          INFO is INTEGER
++*>          = 0: successful exit
++*>          < 0: if INFO = -i, the i-th argument had an illegal value
++*> \endverbatim
++*
++*  Authors:
++*  ========
++*
++*> \author Univ. of Tennessee
++*> \author Univ. of California Berkeley
++*> \author Univ. of Colorado Denver
++*> \author NAG Ltd.
++*
++*> \ingroup doubleGEcomputational
++*
++*> \par Further Details:
++*  =====================
++*>
++*> \verbatim
++*>
++*>  The matrix Q is represented as a product of elementary reflectors
++*>
++*>     Q = H(1) H(2) . . . H(k), where k = min(m,n).
++*>
++*>  Each H(i) has the form
++*>
++*>     H(i) = I - tau * v * v**T
++*>
++*>  where tau is a real scalar, and v is a real vector with
++*>  v(1:i-1) = 0 and v(i) = 1; v(i+1:m) is stored on exit in A(i+1:m,i),
++*>  and tau in TAU(i).
++*> \endverbatim
++*>
++*  =====================================================================
++      SUBROUTINE DGEPOQR2( M, N, A, LDA, TAU, ND, DEFF, WORK, INFO )
++*
++*  -- LAPACK computational routine --
++*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
++*  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
++*
++*     .. Scalar Arguments ..
++      INTEGER            INFO, LDA, M, N
++      INTEGER            ND
++*     ..
++*     .. Array Arguments ..
++      DOUBLE PRECISION   A( LDA, * ), TAU( * ), WORK( * )
++      INTEGER            DEFF( * )
++*     ..
++*
++*  =====================================================================
++*
++*     .. Parameters ..
++      DOUBLE PRECISION   ONE
++      PARAMETER          ( ONE = 1.0D+0 )
++*     ..
++*     .. Local Scalars ..
++      INTEGER            I, K
++      DOUBLE PRECISION   AII
++*     ..
++*     .. External Subroutines ..
++      EXTERNAL           DLARF, DLARFG, XERBLA
++*     ..
++*     .. Intrinsic Functions ..
++      INTRINSIC          MAX, MIN
++*     ..
++*     .. Executable Statements ..
++*
++*     Test the input arguments
++*
++      INFO = 0
++      IF( M.LT.0 ) THEN
++         INFO = -1
++      ELSE IF( N.LT.0 ) THEN
++         INFO = -2
++      ELSE IF( LDA.LT.MAX( 1, M ) ) THEN
++         INFO = -4
++      END IF
++      IF( INFO.NE.0 ) THEN
++         CALL XERBLA( 'DGEQR2', -INFO )
++         RETURN
++      END IF
++*
++      K = MIN( M, N )
++      ND = 0
++*
++      DO 10 I = 1, K
++*
++*        Generate elementary reflector H(i) to annihilate A(i+1-ND:m,i)
++*
++         CALL DLARFGPO( M-I+ND+1,
++     $                  A( I-ND, I    ), A( MIN( I+1-ND, M ), I    ), 1,
++     $                  A( I-ND, I-ND ), A( MIN( I+1-ND, M ), I-ND ), 1,
++     $                  TAU( I ) )
++         IF( abs(A( I-ND, I-ND )) < EPSILON(0.) ) THEN
++             DEFF(I) = 1
++             ND = ND + 1
++         ELSE
++             DEFF(I) = 0
++             IF( I.LT.N ) THEN
++*    
++*               Apply H(i) to A(i:m,i+1:n) from the left
++*    
++                AII = A( I-ND, I-ND )
++                A( I-ND, I-ND ) = ONE
++                CALL DLARF( 'Left', M-I+ND+1, N-I, A( I-ND, I-ND ), 1,
++     $                  TAU( I ), A( I-ND, I+1 ), LDA, WORK )
++                A( I-ND, I-ND ) = AII
++             END IF
++         END IF
++   10 CONTINUE
++      RETURN
++*
++*     End of DGEQR2
++*
++      END
+diff --git a/SRC/dgepoqrf.f b/SRC/dgepoqrf.f
+new file mode 100644
+index 0000000..006e916
+--- /dev/null
++++ b/SRC/dgepoqrf.f
+@@ -0,0 +1,291 @@
++*> \brief \b DGEQRF
++*
++*  =========== DOCUMENTATION ===========
++*
++* Online html documentation available at
++*            http://www.netlib.org/lapack/explore-html/
++*
++*> \htmlonly
++*> Download DGEQRF + dependencies
++*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dgeqrf.f">
++*> [TGZ]</a>
++*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dgeqrf.f">
++*> [ZIP]</a>
++*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dgeqrf.f">
++*> [TXT]</a>
++*> \endhtmlonly
++*
++*  Definition:
++*  ===========
++*
++*       SUBROUTINE DGEQRF( M, N, A, LDA, TAU, WORK, LWORK, INFO )
++*
++*       .. Scalar Arguments ..
++*       INTEGER            INFO, LDA, LWORK, M, N
++*       ..
++*       .. Array Arguments ..
++*       DOUBLE PRECISION   A( LDA, * ), TAU( * ), WORK( * )
++*       ..
++*
++*
++*> \par Purpose:
++*  =============
++*>
++*> \verbatim
++*>
++*> DGEQRF computes a QR factorization of a real M-by-N matrix A:
++*>
++*>    A = Q * ( R ),
++*>            ( 0 )
++*>
++*> where:
++*>
++*>    Q is a M-by-M orthogonal matrix;
++*>    R is an upper-triangular N-by-N matrix;
++*>    0 is a (M-N)-by-N zero matrix, if M > N.
++*>
++*> \endverbatim
++*
++*  Arguments:
++*  ==========
++*
++*> \param[in] M
++*> \verbatim
++*>          M is INTEGER
++*>          The number of rows of the matrix A.  M >= 0.
++*> \endverbatim
++*>
++*> \param[in] N
++*> \verbatim
++*>          N is INTEGER
++*>          The number of columns of the matrix A.  N >= 0.
++*> \endverbatim
++*>
++*> \param[in,out] A
++*> \verbatim
++*>          A is DOUBLE PRECISION array, dimension (LDA,N)
++*>          On entry, the M-by-N matrix A.
++*>          On exit, the elements on and above the diagonal of the array
++*>          contain the min(M,N)-by-N upper trapezoidal matrix R (R is
++*>          upper triangular if m >= n); the elements below the diagonal,
++*>          with the array TAU, represent the orthogonal matrix Q as a
++*>          product of min(m,n) elementary reflectors (see Further
++*>          Details).
++*> \endverbatim
++*>
++*> \param[in] LDA
++*> \verbatim
++*>          LDA is INTEGER
++*>          The leading dimension of the array A.  LDA >= max(1,M).
++*> \endverbatim
++*>
++*> \param[out] TAU
++*> \verbatim
++*>          TAU is DOUBLE PRECISION array, dimension (min(M,N))
++*>          The scalar factors of the elementary reflectors (see Further
++*>          Details).
++*> \endverbatim
++*>
++*> \param[out] WORK
++*> \verbatim
++*>          WORK is DOUBLE PRECISION array, dimension (MAX(1,LWORK))
++*>          On exit, if INFO = 0, WORK(1) returns the optimal LWORK.
++*> \endverbatim
++*>
++*> \param[in] LWORK
++*> \verbatim
++*>          LWORK is INTEGER
++*>          The dimension of the array WORK.
++*>          LWORK >= 1, if MIN(M,N) = 0, and LWORK >= N, otherwise.
++*>          For optimum performance LWORK >= N*NB, where NB is
++*>          the optimal blocksize.
++*>
++*>          If LWORK = -1, then a workspace query is assumed; the routine
++*>          only calculates the optimal size of the WORK array, returns
++*>          this value as the first entry of the WORK array, and no error
++*>          message related to LWORK is issued by XERBLA.
++*> \endverbatim
++*>
++*> \param[out] INFO
++*> \verbatim
++*>          INFO is INTEGER
++*>          = 0:  successful exit
++*>          < 0:  if INFO = -i, the i-th argument had an illegal value
++*> \endverbatim
++*
++*  Authors:
++*  ========
++*
++*> \author Univ. of Tennessee
++*> \author Univ. of California Berkeley
++*> \author Univ. of Colorado Denver
++*> \author NAG Ltd.
++*
++*> \ingroup doubleGEcomputational
++*
++*> \par Further Details:
++*  =====================
++*>
++*> \verbatim
++*>
++*>  The matrix Q is represented as a product of elementary reflectors
++*>
++*>     Q = H(1) H(2) . . . H(k), where k = min(m,n).
++*>
++*>  Each H(i) has the form
++*>
++*>     H(i) = I - tau * v * v**T
++*>
++*>  where tau is a real scalar, and v is a real vector with
++*>  v(1:i-1) = 0 and v(i) = 1; v(i+1:m) is stored on exit in A(i+1:m,i),
++*>  and tau in TAU(i).
++*> \endverbatim
++*>
++*  =====================================================================
++      SUBROUTINE DGEPOQRF( M, N, A, LDA, TAU, ND, DEFF, WORK, LWORK,
++     $                     INFO )
++*
++*  -- LAPACK computational routine --
++*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
++*  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
++*
++*     .. Scalar Arguments ..
++      INTEGER            INFO, LDA, LWORK, M, N, ND
++*     ..
++*     .. Array Arguments ..
++      DOUBLE PRECISION   A( LDA, * ), TAU( * ), WORK( * )
++      INTEGER            DEFF( * )
++*     ..
++*
++*  =====================================================================
++*
++*     .. Local Scalars ..
++      LOGICAL            LQUERY
++      INTEGER            I, J, IB, IINFO, IWS, K, LDWORK, LWKOPT, NB,
++     $                   NBMIN, NX, ND2
++*     ..
++*     .. External Subroutines ..
++      EXTERNAL           DGEPOQR2, DLARFB, DLARFT, XERBLA
++*     ..
++*     .. Intrinsic Functions ..
++      INTRINSIC          MAX, MIN
++*     ..
++*     .. External Functions ..
++      INTEGER            ILAENV
++      EXTERNAL           ILAENV
++*     ..
++*     .. Executable Statements ..
++*
++*     Test the input arguments
++*
++      K = MIN( M, N )
++      INFO = 0
++      NB = ILAENV( 1, 'DGEQRF', ' ', M, N, -1, -1 )
++      LQUERY = ( LWORK.EQ.-1 )
++      IF( M.LT.0 ) THEN
++         INFO = -1
++      ELSE IF( N.LT.0 ) THEN
++         INFO = -2
++      ELSE IF( LDA.LT.MAX( 1, M ) ) THEN
++         INFO = -4
++      ELSE IF( .NOT.LQUERY ) THEN
++         IF( LWORK.LE.0 .OR. ( M.GT.0 .AND. LWORK.LT.MAX( 1, N ) ) )
++     $      INFO = -7
++      END IF
++      IF( INFO.NE.0 ) THEN
++         CALL XERBLA( 'DGEQRF', -INFO )
++         RETURN
++      ELSE IF( LQUERY ) THEN
++         IF( K.EQ.0 ) THEN
++            LWKOPT = 1
++         ELSE
++            LWKOPT = N*NB
++         END IF
++         WORK( 1 ) = LWKOPT
++         RETURN
++      END IF
++*
++*     Quick return if possible
++*
++      IF( K.EQ.0 ) THEN
++         WORK( 1 ) = 1
++         RETURN
++      END IF
++*
++      NBMIN = 2
++      NX = 0
++      IWS = N
++      IF( NB.GT.1 .AND. NB.LT.K ) THEN
++*
++*        Determine when to cross over from blocked to unblocked code.
++*
++         NX = MAX( 0, ILAENV( 3, 'DGEQRF', ' ', M, N, -1, -1 ) )
++         IF( NX.LT.K ) THEN
++*
++*           Determine if workspace is large enough for blocked code.
++*
++            LDWORK = N
++            IWS = LDWORK*NB
++            IF( LWORK.LT.IWS ) THEN
++*
++*              Not enough workspace to use optimal NB:  reduce NB and
++*              determine the minimum value of NB.
++*
++               NB = LWORK / LDWORK
++               NBMIN = MAX( 2, ILAENV( 2, 'DGEQRF', ' ', M, N, -1,
++     $                 -1 ) )
++            END IF
++         END IF
++      END IF
++*
++      J = 1
++      ND = 0
++*
++      IF( NB.GE.NBMIN .AND. NB.LT.K .AND. NX.LT.K ) THEN
++*
++*        Use blocked code initially
++*
++         DO 10 I = 1, K - NX, NB
++            IB = MIN( K-I+1, NB )
++*
++*           Compute the QR factorization of the current block
++*           A(i-nd:m,i:i+ib-1)
++*
++            CALL DGEPOQR2( M-J+1, IB, A( J, I ), LDA, TAU( I ),
++     $                     ND2, DEFF(I), WORK, IINFO )
++            ND = ND + ND2
++
++            IF(( I+IB.LE.N ) .AND. (ND2 < IB)) THEN
++*
++*              Form the triangular factor of the block reflector
++*              H = H(i) H(i+1) . . . H(i+ib-1)
++*
++               CALL DLARFT( 'Forward', 'Columnwise', M-J+1, IB-ND2,
++     $                      A( J, I ), LDA, TAU( I ), WORK, LDWORK )
++*
++*              Apply H**T to A(i-nd:m,i+ib:n) from the left
++*
++               CALL DLARFB( 'Left', 'Transpose', 'Forward',
++     $                      'Columnwise', M-J+1, N-I-IB+1, IB-ND2,
++     $                      A( J, J ), LDA, WORK, LDWORK,
++     $                      A( J, I+IB ), LDA, WORK( IB+1 ), LDWORK )
++            END IF
++            J = J + (IB - ND2)
++   10    CONTINUE
++      ELSE
++         I = 1
++      END IF
++*
++*     Use unblocked code to factor the last or only block.
++*
++      IF( I.LE.K )
++     $   CALL DGEPOQR2( M-J+1, N-I+1, A( J, I ), LDA, TAU( I ),
++     $                ND2, DEFF(I), WORK, IINFO )
++         ND = ND + ND2
++*
++      WORK( 1 ) = IWS
++      RETURN
++*
++*     End of DGEQRF
++*
++      END
+diff --git a/SRC/dlarfgpo.f b/SRC/dlarfgpo.f
+new file mode 100644
+index 0000000..97b8e05
+--- /dev/null
++++ b/SRC/dlarfgpo.f
+@@ -0,0 +1,206 @@
++*> \brief \b DLARFG generates an elementary reflector (Householder matrix).
++*
++*  =========== DOCUMENTATION ===========
++*
++* Online html documentation available at
++*            http://www.netlib.org/lapack/explore-html/
++*
++*> \htmlonly
++*> Download DLARFG + dependencies
++*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlarfg.f">
++*> [TGZ]</a>
++*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlarfg.f">
++*> [ZIP]</a>
++*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlarfg.f">
++*> [TXT]</a>
++*> \endhtmlonly
++*
++*  Definition:
++*  ===========
++*
++*       SUBROUTINE DLARFG( N, ALPHA, X, INCX, TAU )
++*
++*       .. Scalar Arguments ..
++*       INTEGER            INCX, N
++*       DOUBLE PRECISION   ALPHA, TAU
++*       ..
++*       .. Array Arguments ..
++*       DOUBLE PRECISION   X( * )
++*       ..
++*
++*
++*> \par Purpose:
++*  =============
++*>
++*> \verbatim
++*>
++*> DLARFG generates a real elementary reflector H of order n, such
++*> that
++*>
++*>       H * ( alpha ) = ( beta ),   H**T * H = I.
++*>           (   x   )   (   0  )
++*>
++*> where alpha and beta are scalars, and x is an (n-1)-element real
++*> vector. H is represented in the form
++*>
++*>       H = I - tau * ( 1 ) * ( 1 v**T ) ,
++*>                     ( v )
++*>
++*> where tau is a real scalar and v is a real (n-1)-element
++*> vector.
++*>
++*> If the elements of x are all zero, then tau = 0 and H is taken to be
++*> the unit matrix.
++*>
++*> Otherwise  1 <= tau <= 2.
++*> \endverbatim
++*
++*  Arguments:
++*  ==========
++*
++*> \param[in] N
++*> \verbatim
++*>          N is INTEGER
++*>          The order of the elementary reflector.
++*> \endverbatim
++*>
++*> \param[in] ALPHA
++*> \verbatim
++*>          ALPHA is DOUBLE PRECISION
++*> \endverbatim
++*>
++*> \param[in] X
++*> \verbatim
++*>          X is DOUBLE PRECISION array, dimension
++*>                         (1+(N-2)*abs(INCX))
++*> \endverbatim
++*>
++*> \param[in] INCX
++*> \verbatim
++*>          INCX is INTEGER
++*>          The increment between elements of X. INCX > 0.
++*> \endverbatim
++*>
++*> \param[out] BETA
++*> \verbatim
++*>          BETA is DOUBLE PRECISION
++*> \endverbatim
++*>
++*> \param[out] V
++*> \verbatim
++*>          V is DOUBLE PRECISION array, dimension
++*>                         (1+(N-2)*abs(INCV))
++*> \endverbatim
++*>
++*> \param[in] INCV
++*> \verbatim
++*>          INCV is INTEGER
++*>          The increment between elements of V. INCV > 0.
++*> \endverbatim
++*>
++*> \param[out] TAU
++*> \verbatim
++*>          TAU is DOUBLE PRECISION
++*>          The value tau.
++*> \endverbatim
++*
++*  Authors:
++*  ========
++*
++*> \author Univ. of Tennessee
++*> \author Univ. of California Berkeley
++*> \author Univ. of Colorado Denver
++*> \author NAG Ltd.
++*
++*> \ingroup doubleOTHERauxiliary
++*
++*  =====================================================================
++      SUBROUTINE DLARFGPO( N, ALPHA, X, INCX, BETA, V, INCV, TAU )
++*
++*  -- LAPACK auxiliary routine --
++*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
++*  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
++*
++*     .. Scalar Arguments ..
++      INTEGER            INCX, INCV, N
++      DOUBLE PRECISION   ALPHA, BETA, TAU
++*     ..
++*     .. Array Arguments ..
++      DOUBLE PRECISION   X( * ), V( * )
++*     ..
++*
++*  =====================================================================
++*
++*     .. Parameters ..
++      DOUBLE PRECISION   ONE, ZERO
++      PARAMETER          ( ONE = 1.0D+0, ZERO = 0.0D+0 )
++*     ..
++*     .. Local Scalars ..
++      INTEGER            J, KNT
++      DOUBLE PRECISION   BETA2, RSAFMN, SAFMIN, XNORM
++*     ..
++*     .. External Functions ..
++      DOUBLE PRECISION   DLAMCH, DLAPY2, DNRM2
++      EXTERNAL           DLAMCH, DLAPY2, DNRM2
++*     ..
++*     .. Intrinsic Functions ..
++      INTRINSIC          ABS, SIGN
++*     ..
++*     .. External Subroutines ..
++      EXTERNAL           DSCAL
++*     ..
++*     .. Executable Statements ..
++*
++      IF( N.LE.1 ) THEN
++         TAU = ZERO
++         RETURN
++      END IF
++*
++      XNORM = DNRM2( N-1, X, INCX )
++*
++      IF( XNORM.EQ.ZERO ) THEN
++*
++*        H  =  I
++*
++         TAU = ZERO
++      ELSE
++*
++*        general case
++*
++         BETA2 = -SIGN( DLAPY2( ALPHA, XNORM ), ALPHA )
++         SAFMIN = DLAMCH( 'S' ) / DLAMCH( 'E' )
++         KNT = 0
++         IF( ABS( BETA2 ).LT.SAFMIN ) THEN
++*
++*           XNORM, BETA may be inaccurate; scale X and recompute them
++*
++            RSAFMN = ONE / SAFMIN
++   10       CONTINUE
++            KNT = KNT + 1
++            CALL DSCAL( N-1, RSAFMN, X, INCX )
++            BETA2 = BETA2*RSAFMN
++            ALPHA = ALPHA*RSAFMN
++            IF( (ABS( BETA2 ).LT.SAFMIN) .AND. (KNT .LT. 20) )
++     $         GO TO 10
++*
++*           New BETA is at most 1, at least SAFMIN
++*
++            XNORM = DNRM2( N-1, X, INCX )
++            BETA2 = -SIGN( DLAPY2( ALPHA, XNORM ), ALPHA )
++         END IF
++         TAU = ( BETA2-ALPHA ) / BETA2
++         CALL DSCALCPY( N-1, ONE / ( ALPHA-BETA2 ), X, INCX, V, INCV )
++*
++*        If ALPHA is subnormal, it may lose relative accuracy
++*
++         DO 20 J = 1, KNT
++            BETA2 = BETA2*SAFMIN
++ 20      CONTINUE
++         BETA = BETA2
++      END IF
++*
++      RETURN
++*
++*     End of DLARFG
++*
++      END
+diff --git a/SRC/dscalcpy.f b/SRC/dscalcpy.f
+new file mode 100644
+index 0000000..47f6366
+--- /dev/null
++++ b/SRC/dscalcpy.f
+@@ -0,0 +1,136 @@
++*> \brief \b DSCAL
++*
++*  =========== DOCUMENTATION ===========
++*
++* Online html documentation available at
++*            http://www.netlib.org/lapack/explore-html/
++*
++*  Definition:
++*  ===========
++*
++*       SUBROUTINE DSCAL(N,DA,DX,INCX)
++*
++*       .. Scalar Arguments ..
++*       DOUBLE PRECISION DA
++*       INTEGER INCX,N
++*       ..
++*       .. Array Arguments ..
++*       DOUBLE PRECISION DX(*)
++*       ..
++*
++*
++*> \par Purpose:
++*  =============
++*>
++*> \verbatim
++*>
++*>    DSCAL scales a vector by a constant.
++*>    uses unrolled loops for increment equal to 1.
++*> \endverbatim
++*
++*  Arguments:
++*  ==========
++*
++*> \param[in] N
++*> \verbatim
++*>          N is INTEGER
++*>         number of elements in input vector(s)
++*> \endverbatim
++*>
++*> \param[in] DA
++*> \verbatim
++*>          DA is DOUBLE PRECISION
++*>           On entry, DA specifies the scalar alpha.
++*> \endverbatim
++*>
++*> \param[in,out] DX
++*> \verbatim
++*>          DX is DOUBLE PRECISION array, dimension ( 1 + ( N - 1 )*abs( INCX ) )
++*> \endverbatim
++*>
++*> \param[in] INCX
++*> \verbatim
++*>          INCX is INTEGER
++*>         storage spacing between elements of DX
++*> \endverbatim
++*
++*  Authors:
++*  ========
++*
++*> \author Univ. of Tennessee
++*> \author Univ. of California Berkeley
++*> \author Univ. of Colorado Denver
++*> \author NAG Ltd.
++*
++*> \ingroup double_blas_level1
++*
++*> \par Further Details:
++*  =====================
++*>
++*> \verbatim
++*>
++*>     jack dongarra, linpack, 3/11/78.
++*>     modified 3/93 to return if incx .le. 0.
++*>     modified 12/3/93, array(1) declarations changed to array(*)
++*> \endverbatim
++*>
++*  =====================================================================
++      SUBROUTINE DSCALCPY(N,DA,DX,INCX,DY,INCY)
++*
++*  -- Reference BLAS level1 routine --
++*  -- Reference BLAS is a software package provided by Univ. of Tennessee,    --
++*  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
++*
++*     .. Scalar Arguments ..
++      DOUBLE PRECISION DA
++      INTEGER INCX,INCY,N
++*     ..
++*     .. Array Arguments ..
++      DOUBLE PRECISION DX(*), DY(*)
++*     ..
++*
++*  =====================================================================
++*
++*     .. Local Scalars ..
++      INTEGER I,M,MP1,NINCX
++*     ..
++*     .. Intrinsic Functions ..
++      INTRINSIC MOD
++*     ..
++      IF (N.LE.0 .OR. INCX.LE.0) RETURN
++      IF (INCX.EQ.1) THEN
++*
++*        code for increment equal to 1
++*
++*
++*        clean-up loop
++*
++         M = MOD(N,5)
++         IF (M.NE.0) THEN
++            DO I = 1,M
++               DY(I) = DA*DX(I)
++            END DO
++            IF (N.LT.5) RETURN
++         END IF
++         MP1 = M + 1
++         DO I = MP1,N,5
++            DY(I) = DA*DX(I)
++            DY(I+1) = DA*DX(I+1)
++            DY(I+2) = DA*DX(I+2)
++            DY(I+3) = DA*DX(I+3)
++            DY(I+4) = DA*DX(I+4)
++         END DO
++      ELSE
++*
++*        code for increment not equal to 1
++*
++         NINCX = N*INCX
++         DO I = 1,NINCX,INCX
++            DY(I) = DA*DX(I)
++         END DO
++      END IF
++      RETURN
++*
++*     End of DSCAL
++*
++      END
+diff --git a/poqr.c b/poqr.c
+new file mode 100644
+index 0000000..43fb99b
+--- /dev/null
++++ b/poqr.c
+@@ -0,0 +1,87 @@
++#include <stdlib.h>
++#include <stdio.h>
++#include <time.h>
++//#include "mex.h"
++#include "matrix.h"
++
++#define min(a,b) (((a)<(b))?(a):(b))
++#define max(a,b) (((a)>(b))?(a):(b))
++
++/* Interface to the Fortran routine */
++void dgepoqrf_
++(
++    int const* m,
++    int const* n,
++    double* A,
++    int const* lda,
++    double* tau,
++    int* nd,
++    int* deff,
++    double* work,
++    int const* lwork,
++    int* info
++);
++
++/* The gateway function */
++void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
++{
++    /* variable declarations here */
++
++    int m, n, lda, lwork, info;
++    double *A, *RV, *tau, *work;
++    int nd, *deff;
++    struct timespec start, end;
++    double runtime;
++
++    /* code here */
++
++    /* get dimensions of the input matrix */
++    m = mxGetM(prhs[0]);
++    n = mxGetN(prhs[0]);
++
++    lda = m; //XXX
++    lwork = min(m,n) * min(m,n);
++    info = 0;
++
++    nd = 0;
++
++    /* create a pointer to the real data in the input matrix  */
++    A = mxGetPr(prhs[0]);
++
++    /* create the output matrix */
++    plhs[0] = mxDuplicateArray(prhs[0]);
++    plhs[1] = mxCreateNumericMatrix(1, min(m,n), mxDOUBLE_CLASS, mxREAL);
++    plhs[2] = mxCreateNumericMatrix(1, min(m,n), mxINT32_CLASS, mxREAL);
++
++    /* get a pointer to the real data in the output matrix */
++    RV = mxGetPr(plhs[0]);
++    tau = mxGetPr(plhs[1]);
++    deff = mxGetPr(plhs[2]);
++
++    work = (double*) malloc(lwork * sizeof(double));
++
++    /* call the computational routine */
++    clock_gettime(CLOCK_REALTIME, &start);
++    dgepoqrf_
++    (
++        &m,
++        &n,
++        RV,
++        &lda,
++        tau,
++        &nd,
++        deff,
++        work,
++        &lwork,
++        &info
++    );
++    clock_gettime(CLOCK_REALTIME, &end);
++    runtime = (end.tv_sec - start.tv_sec) * 1e9;
++    runtime = (runtime + (end.tv_nsec - start.tv_nsec)) * 1e-9;
++    printf("Elapsed time is %.9e seconds.\n", runtime);
++
++    free(work);
++
++    return;
++}
++
+diff --git a/test.sh b/test.sh
+new file mode 100755
+index 0000000..de64d03
+--- /dev/null
++++ b/test.sh
+@@ -0,0 +1,14 @@
++#make blaslib 
++make lapacklib
++#gcc -g -o test_dgepoqrf test_dgepoqrf.c -lm -lgfortran -L . -llapack -lrefblas
++gcc -g -o test_dgepoqrf test_dgepoqrf.c -lm -lgfortran -L . -llapack -L$MKLROOT/lib/intel64 -lmkl_gf_lp64 -lmkl_core -lmkl_gnu_thread -lpthread -lm -lgomp
++echo 'Afull'
++./test_dgepoqrf $1 $2 1
++echo 'Abeg'
++./test_dgepoqrf $1 $2 2
++echo 'Amid'
++./test_dgepoqrf $1 $2 4
++echo 'Aend'
++./test_dgepoqrf $1 $2 5
++#mex poqr.c -R2018a -lm -lgfortran -L. -llapack -lrefblas
++mex poqr.c -R2018a -lm -lgfortran -L. -llapack -L$MKLROOT/lib/intel64 -lmkl_gf_lp64
+diff --git a/test_dgepoqrf.c b/test_dgepoqrf.c
+new file mode 100644
+index 0000000..4ba35bc
+--- /dev/null
++++ b/test_dgepoqrf.c
+@@ -0,0 +1,174 @@
++#include <stdlib.h>
++#include <stdio.h>
++#include <time.h>
++
++#define min(a,b) (((a)<(b))?(a):(b))
++#define max(a,b) (((a)>(b))?(a):(b))
++#define COND(type,n,j) (cond##type((n),(j)))
++
++//#define LAPACK_dgepoqrf LAPACK_GLOBAL(dgepoqrf,DGEPOQRF)
++void dgeqrf_
++(
++    int const* m,
++    int const* n,
++    double* A,
++    int const* lda,
++    double* tau,
++    double* work,
++    int const* lwork,
++    int* info
++);
++
++void dgepoqrf_
++(
++    int const* m,
++    int const* n,
++    double* A,
++    int const* lda,
++    double* tau,
++    int* nd,
++    int* deff,
++    double* work,
++    int const* lwork,
++    int* info
++);
++
++void dgeqp3_
++(
++    int const* m,
++    int const* n,
++    double* A,
++    int const* lda,
++    int* jpvt,
++    double* tau,
++    double* work,
++    int const* lwork,
++    int* info
++);
++
++double drand(double amin, double amax)
++{
++    double range = (amax - amin); 
++    double div = RAND_MAX / range;
++    return amin + (rand() / div);
++}
++
++int cond0(n, j) {return 0;}
++int cond1(n, j) {return 1;}
++int cond2(n, j) {return j < n/2;}
++int cond3(n, j) {return j / 2 * 2 == j;}
++int cond4(n, j) {return j < n/4 || j >= n*3/4;}
++int cond5(n, j) {return j >= n/2;}
++int cond6(n, j) {return (((double) abs(rand()))/((double) RAND_MAX) < 0.5);}
++
++void create_matrix(int m, int n, int type, double* A)
++{
++    int i, j, ND = 0;
++    srand(0);
++    int (*cond)(int, int);
++    switch (type)
++    {
++        case 0: cond = &cond0; break;
++        case 1: cond = &cond1; break;
++        case 2: cond = &cond2; break;
++        case 3: cond = &cond3; break;
++        case 4: cond = &cond4; break;
++        case 5: cond = &cond5; break;
++        case 6: cond = &cond6; break;
++    }
++    for (j = 0; j<n; j++)
++    {
++        if (cond(n,j))
++        {
++            for (i = 0; i<m; i++)
++            {
++                A[i+j*m] = drand(-1., 1.);
++            }
++        }
++        else
++        {
++            ND++;
++            for (i = 0; i<m; i++)
++            {
++                A[i+j*m] = 0.;
++            }
++        }
++//        A[i*n+i] = ((i / 2) * 2 == i) ? 1. : 0. ;
++    }
++//    printf(" ND orig    %d\n", ND);
++}
++
++int main(int argc, char** argv)
++{
++    int m = atoi(argv[1]);
++    int n = atoi(argv[2]);
++    int type = atoi(argv[3]);
++    int j;
++    double* A = (double*) malloc(m * n * sizeof(double));
++    int lda = m; //XXX
++    double* tau = (double*) malloc(min(m,n) * sizeof(double));
++    int nd;
++    int* deff = (int*) malloc(n * sizeof(int));
++    int lwork = min(m,n) * min(m,n);
++    double* work = (double*) malloc(lwork * sizeof(double));
++    int info = 0;
++    int* jpvt = (int*) malloc(n * sizeof(int));
++
++    clock_t tic, toc;
++
++    // WarmupQR
++
++    create_matrix(m, n, type, A);
++
++    tic = clock();
++    dgeqrf_ ( &m, &n, A, &lda, tau, work, &lwork, &info);
++    toc = clock();
++    printf("WarmupQR : %.2f seconds\n", (double)(toc - tic) / CLOCKS_PER_SEC);
++
++    // QR
++
++    create_matrix(m, n, type, A);
++
++    tic = clock();
++    dgeqrf_ ( &m, &n, A, &lda, tau, work, &lwork, &info);
++    toc = clock();
++    printf("QR       : %.2f seconds\n", (double)(toc - tic) / CLOCKS_PER_SEC);
++
++    // PAQR
++
++    create_matrix(m, n, type, A);
++//    for (j = 0; j<n; j++)
++//    {
++//        deff[j] = -1;
++//    }
++
++    tic = clock();
++    dgepoqrf_
++    ( &m, &n, A, &lda, tau, &nd, deff, work, &lwork, &info);
++    toc = clock();
++
++//    for (j = 0; j<n; j++)
++//    {
++//        printf("%d ", deff[j]);
++//    }
++//    printf("\n");
++
++    printf("PAQR     : %.2f seconds\n", (double)(toc - tic) / CLOCKS_PER_SEC);
++
++    // QRCP
++
++    create_matrix(m, n, type, A);
++
++    tic = clock();
++    dgeqp3_ ( &m, &n, A, &lda, jpvt, tau, work, &lwork, &info);
++    toc = clock();
++    printf("QRCP     : %.2f seconds\n", (double)(toc - tic) / CLOCKS_PER_SEC);
++
++    free(A);
++    free(tau);
++    free(deff);
++    free(work);
++
++    return 0;
++}
++
