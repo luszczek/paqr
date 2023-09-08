@@ -1,5 +1,18 @@
-# paqr_SC22
-Artifact Description / Article Evaluation for SC22
+
+This is a repo of codes used for IPDPS 2023 best paper nominee listed
+in https://www.ipdps.org/ipdps2023/2023-advance-program.html under
+"PLENARY SESSION: Best Papers" on Tuesday, May 16, 2023.
+The paper details are as follows: "PAQR: Pivoting Avoiding QR factorization" by
+Wissam Sid-Lakhdar, Sebastien Cayrols, Daniel Bielich, Ahmad Abdelfattah,
+Piotr Luszczek, Mark Gates, and Stanimire Tomov (University of Tennessee at Knoxville);
+Hans Johansen and David Williams-Young (Lawrence Berkeley National Laboratory);
+Timothy Davis (Texas A&M University);
+and Jack Dongarra and Hartwig Anzt (University of Tennessee at Knoxville)
+DOI: 10.1109/IPDPS54959.2023.00040
+https://doi.ieeecomputersociety.org/10.1109/IPDPS54959.2023.00040
+
+# Originally github.com/drslmw/paqr_SC22
+Originally it was an artifact description for article evaluation for SC22
 
 Four components are present to reproduce the results in the paper.
 
@@ -69,4 +82,3 @@ The ScaLAPACK code was compiled with:
 - Intel-oneapi-MKL/2022.0.2
 - Open-MPI/4.1.2
 - cmake/3.22.2
-
